@@ -1,4 +1,4 @@
-module git.q8s.co/pschlump/dbgo
+module github.com/pschlump/dbgo
 
 go 1.17
 
