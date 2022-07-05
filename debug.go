@@ -27,7 +27,7 @@ package dbgo
 // To import put this in your code:
 //
 //		import (
-//			"git.q8s.co/pschlump/dbgo"
+//			"github.com/pschlump/dbgo"
 //		)
 //
 // Then
