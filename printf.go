@@ -37,7 +37,7 @@ func init() {
 	ColorTab["red"] = ColorRed
 	ColorTab["green"] = ColorGreen
 	ColorTab["yellow"] = ColorYellow
-	ColorTab["blue"] = ColorBlue
+	ColorTab["blue"] = ColorBlueOnWhite
 	ColorTab["cyan"] = ColorCyan
 	ColorTab["magenta"] = ColorMagentaOnWhite
 	ColorTab["green_on_white"] = ColorGreenOnWhite
@@ -47,7 +47,7 @@ func init() {
 	ColorTab["Red"] = ColorRed
 	ColorTab["Green"] = ColorGreen
 	ColorTab["Yellow"] = ColorYellow
-	ColorTab["Blue"] = ColorBlue
+	ColorTab["Blue"] = ColorBlueOnWhite
 	ColorTab["Cyan"] = ColorCyan
 	ColorTab["Reset"] = ColorReset
 	ColorTab["Magenta"] = ColorMagentaOnWhite
