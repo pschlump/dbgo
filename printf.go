@@ -119,7 +119,15 @@ func ProcessFormat(format string, a []interface{}) (rv string, params []interfac
 			buffer.WriteByte(format[i])
 			// must parse better ! ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 			if format[i] == '%' {
-				params = append(params, a[param_no])
+				if param_no < len(a) {
+					params = append(params, a[param_no])
+				} else {
+					if i+1 < len(format) {
+						params = append(params, fmt.Sprintf("--- Invalid Missing Value, format ->%%%c<- position %d ---", format[i+1], param_no))
+					} else {
+						params = append(params, fmt.Sprintf("--- Invalid Missing Value, format ->%%%c<- position %d ---", '?', param_no))
+					}
+				}
 				param_no++
 			}
 		}
