@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"git.q8s.co/pschlump/dbgo"
+	"github.com/pschlump/dbgo"
 )
 
 func main() {
