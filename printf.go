@@ -72,6 +72,10 @@ func SetDbFlag(f map[string]bool) {
 	}
 }
 
+func SetADbFlag(k string, v bool) {
+	dbOn[k] = v
+}
+
 func ProcessFormat(format string, a []interface{}) (rv string, params []interface{}) {
 	var buffer bytes.Buffer
 	colorFound := false

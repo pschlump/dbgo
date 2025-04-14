@@ -38,10 +38,11 @@ package dbgo
 
 import (
 	"fmt"
-	"github.com/pschlump/json" // modified from "encoding/json" to handle undefined types by ignoring them.
 	"os"
 	"runtime"
 	"strings"
+
+	"github.com/pschlump/json" // modified from "encoding/json" to handle undefined types by ignoring them.
 )
 
 // LINE Return the current line number as a string.  Default parameter is 1, must be an integer
@@ -70,6 +71,18 @@ func LINEnf(d ...int) (int, string) {
 		return line, file
 	}
 	return -1, ""
+}
+
+func LINEn(d ...int) (rv int) {
+	depth := 1
+	if len(d) > 0 {
+		depth = d[0]
+	}
+	_, _, line, ok := runtime.Caller(depth)
+	if ok {
+		rv = line
+	}
+	return
 }
 
 // FILE Returns the current file name.
