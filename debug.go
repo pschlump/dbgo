@@ -4,97 +4,87 @@ package dbgo
 //
 // Simple functions to help with debugging Go (golang) code.
 //
-// Copyright (C) Philip Schlump, 2013-2017.
-// Version: 1.0.2
+// Copyright (C) Philip Schlump, 2013-2024.
 // See LICENSE file for details. -- Same as Go source code.
-// BuildNo: 063
 //
-// I usually use these like this:
-//
-//     func something ( j int ) {
-//			...
-//			fmt.Pritnf ( "Ya someting useful %s\n", debug.LF(1) )
-//
-// This prints out the line and file that "Ya..." is at - so that it is easier for me to match output
-// with code.   The "depth" == 1 parameter is how far up the stack I want to go.  0 is the LF routine.
-// 1 is the caller of LF, usually what I want and the default, 2 is the caller of "something".
-//
-// The most useful functions are:
-//    LF 			Return as a string the line number and file name.
-//	  IAmAt			Print out current line/file
-//	  SVarI			Convert most things to an indented JSON string and return it.
-//
-// To import put this in your code:
-//
-//		import (
-//			"github.com/pschlump/dbgo"
-//		)
-//
-// Then
-//
-//		fmt.Printf ( ".... %s ...\n", dbgo.LF() )
+// The location helpers (LF, LINE, FILE, FUNCNAME, ...) report where they were
+// called from via the runtime call stack. By convention their optional "depth"
+// argument is 1 for the immediate caller (the default), 2 for the caller's
+// caller, and so on.
 //
 // ----------------------------------------------------------------------------------------------------------
 
 import (
 	"fmt"
+
 	"github.com/pschlump/json" // modified from "encoding/json" to handle undefined types by ignoring them.
 	"os"
 	"runtime"
 	"strings"
 )
 
-// LINE Return the current line number as a string.  Default parameter is 1, must be an integer
-// That reflects the depth in the call stack.  A value of 0 would be the LINE() function
-// itself.  If you supply more than one parameter, 2..n are ignored.
-func LINE(d ...int) string {
-	depth := 1
+// callerDepth resolves the optional call-stack depth argument used by the
+// runtime.Caller-based helpers. With no argument it defaults to 1, meaning
+// "the caller of the helper". 0 is the helper itself, 2 the caller's caller.
+func callerDepth(d []int) int {
 	if len(d) > 0 {
-		depth = d[0]
+		return d[0]
 	}
-	_, _, line, ok := runtime.Caller(depth)
+	return 1
+}
+
+// LINE returns the current line number as a string. The optional depth
+// argument selects how far up the call stack to report: 0 is LINE itself,
+// 1 (the default) is the caller of LINE, 2 the caller's caller, and so on.
+// Extra arguments are ignored. "LineNo:Unk" is returned if the frame cannot
+// be recovered.
+func LINE(d ...int) string {
+	_, _, line, ok := runtime.Caller(callerDepth(d))
 	if ok {
 		return fmt.Sprintf("%d", line)
 	}
 	return "LineNo:Unk"
 }
 
-// LINEnf Returns line number, 0 if error
+// LINEnf returns the line number and source file at the given stack depth.
+// The line number is -1 (and the file "") if the frame cannot be recovered.
 func LINEnf(d ...int) (int, string) {
-	depth := 1
-	if len(d) > 0 {
-		depth = d[0]
-	}
-	_, file, line, ok := runtime.Caller(depth)
+	_, file, line, ok := runtime.Caller(callerDepth(d))
 	if ok {
 		return line, file
 	}
 	return -1, ""
 }
 
-// FILE Returns the current file name.
+// FILE returns the source file name at the given stack depth, or "File:Unk"
+// if the frame cannot be recovered.
 func FILE(d ...int) string {
-	depth := 1
-	if len(d) > 0 {
-		depth = d[0]
-	}
-	_, file, _, ok := runtime.Caller(depth)
+	_, file, _, ok := runtime.Caller(callerDepth(d))
 	if ok {
 		return file
-	} else {
-		return "File:Unk"
 	}
+	return "File:Unk"
 }
 
-// LF Returns the File name and Line no as a string.
+// LF returns a "File: <file> LineNo:<line>" string for the caller. It is the
+// most commonly used of the location helpers.
+//
+// The optional depth argument selects the stack frame:
+//   - 0: the LF function itself.
+//   - 1 (the default): the caller of LF.
+//   - 2, 3, ...: further callers up the stack.
+//
+// A negative depth switches on a "walk back across files" mode: frames are
+// scanned forward until the source file changes, and every line number in the
+// run of frames sharing the starting file is reported. A depth of -1 reports
+// the current file's run, -2 additionally reports the next file's run, and so
+// on. This is useful when several wrapper functions live in the same file and
+// you want to see all of their line numbers at once.
 func LF(d ...int) string {
-	depth := 1
-	if len(d) > 0 {
-		depth = d[0]
-	}
+	depth := callerDepth(d)
 	loop := false
 	nf := 0
-	if depth <= -1 { // if <= -1, then number of files to walk back.
+	if depth <= -1 { // negative: walk back across this many distinct files
 		nf = (-depth) + 1
 		depth = 1
 		loop = true
@@ -110,61 +100,55 @@ func LF(d ...int) string {
 				depth++
 				_, file, line, ok = runtime.Caller(depth)
 			}
-			ss = ss + fmt.Sprintf("File: %s LineNo:%d ", file0, ln)
+			ss += fmt.Sprintf("File: %s LineNo:%d ", file0, ln)
 			file0 = file
 		}
 		return ss
-	} else {
-		_, file, line, ok := runtime.Caller(depth)
-		if ok {
-			return fmt.Sprintf("File: %s LineNo:%d", file, line)
-		} else {
-			return fmt.Sprintf("File: Unk LineNo:Unk")
-		}
-	}
-}
-
-// LFj returns the File name and Line no as a string. - for JSON as string
-func LFj(d ...int) string {
-	depth := 1
-	if len(d) > 0 {
-		depth = d[0]
 	}
 	_, file, line, ok := runtime.Caller(depth)
 	if ok {
-		return fmt.Sprintf("\"File\": \"%s\", \"LineNo\":%d", file, line)
-	} else {
+		return fmt.Sprintf("File: %s LineNo:%d", file, line)
+	}
+	return "File: Unk LineNo:Unk"
+}
+
+// LFj returns the file name and line number formatted as a JSON object
+// fragment, for example `"File": "/path/x.go", "LineNo":42`. This is handy
+// when embedding location information inside a JSON log line. It returns ""
+// if the frame cannot be recovered.
+func LFj(d ...int) string {
+	_, file, line, ok := runtime.Caller(callerDepth(d))
+	if !ok {
 		return ""
 	}
+	return fmt.Sprintf("\"File\": \"%s\", \"LineNo\":%d", file, line)
 }
 
-// FUNCNAME returns the current function name as a string.
+// FUNCNAME returns the name of the function at the given stack depth, or
+// "FunctionName:Unk" if the frame cannot be recovered.
 func FUNCNAME(d ...int) string {
-	depth := 1
-	if len(d) > 0 {
-		depth = d[0]
+	pc, _, _, ok := runtime.Caller(callerDepth(d))
+	if !ok {
+		return "FunctionName:Unk"
 	}
-	pc, _, _, ok := runtime.Caller(depth)
-	if ok {
-		xfunc := runtime.FuncForPC(pc).Name()
-		return xfunc
-	} else {
-		return fmt.Sprintf("FunctionName:Unk")
-	}
+	return runtime.FuncForPC(pc).Name()
 }
 
-// IAmAt print out the current Function,File,Line No and an optional set of strings.
+// IAmAt prints the current function, file and line number (one frame up),
+// followed by the optional message strings, to standard output. It is a
+// quick "where am I" trace marker.
 func IAmAt(s ...string) {
 	pc, file, line, ok := runtime.Caller(1)
-	if ok {
-		xfunc := runtime.FuncForPC(pc).Name()
-		fmt.Printf("Func:%s File:%s LineNo:%d, %s\n", xfunc, file, line, strings.Join(s, " "))
-	} else {
+	if !ok {
 		fmt.Printf("Func:Unk File:Unk LineNo:Unk, %s\n", strings.Join(s, " "))
+		return
 	}
+	xfunc := runtime.FuncForPC(pc).Name()
+	fmt.Printf("Func:%s File:%s LineNo:%d, %s\n", xfunc, file, line, strings.Join(s, " "))
 }
 
-// IAmAt2 prints out the current Function,File,Line No and an optional set of strings - do this for 2 levels deep.
+// IAmAt2 is like IAmAt but also reports the caller's caller ("called...")
+// before the current frame, making a two-level trace.
 func IAmAt2(s ...string) {
 	pc, file, line, ok := runtime.Caller(1)
 	pc2, file2, line2, ok2 := runtime.Caller(2)
@@ -182,64 +166,71 @@ func IAmAt2(s ...string) {
 	}
 }
 
-// SVar return the JSON encoded version of the data.
+// SVar returns v as a compact JSON string. If marshaling fails it returns
+// "Error:" followed by the error message instead of panicking.
 func SVar(v interface{}) string {
 	s, err := json.Marshal(v)
-	// s, err := json.MarshalIndent ( v, "", "\t" )
 	if err != nil {
 		return fmt.Sprintf("Error:%s", err)
-	} else {
-		return string(s)
 	}
+	return string(s)
 }
 
-// SVarI return the JSON encoded version of the data with tab indentation.
+// SVarI returns v as a tab-indented JSON string. If marshaling fails it
+// returns "Error:" followed by the error message instead of panicking.
 func SVarI(v interface{}) string {
-	// s, err := json.Marshal ( v )
 	s, err := json.MarshalIndent(v, "", "\t")
 	if err != nil {
 		return fmt.Sprintf("Error:%s", err)
-	} else {
-		return string(s)
 	}
+	return string(s)
 }
 
-// Return 0..n if 's' is in the array arr, else -1.
+// indexOf returns the index of the first element of s equal to v, or -1 if v
+// is not present. It is the shared implementation behind the InArray* helpers.
+func indexOf[T comparable](v T, s []T) int {
+	for i, x := range s {
+		if x == v {
+			return i
+		}
+	}
+	return -1
+}
+
+// InArrayString returns the index of the first occurrence of s in arr, or -1
+// if s is not present.
 func InArrayString(s string, arr []string) int {
-	for i, v := range arr {
-		if v == s {
-			return i
-		}
-	}
-	return -1
+	return indexOf(s, arr)
 }
 
-// Return 0..n if 'n' is in the array arr, else -1.
-func InArrayInt(s int, arr []int) int {
-	for i, v := range arr {
-		if v == s {
-			return i
-		}
-	}
-	return -1
+// InArrayInt returns the index of the first occurrence of n in arr, or -1 if
+// n is not present.
+func InArrayInt(n int, arr []int) int {
+	return indexOf(n, arr)
 }
 
-var stdout_on = false
+// stdoutOn gates TrIAmAt. Nothing in this package sets it to true, so
+// TrIAmAt is inert unless a caller (from within the package) enables it.
+var stdoutOn = false
 
-// Hm...
+// TrIAmAt is a "trace" variant of IAmAt that only prints when stdoutOn is
+// true. Because nothing in this package enables stdoutOn, TrIAmAt is inert by
+// default; set stdoutOn = true to turn it on.
 func TrIAmAt(s ...string) {
-	if stdout_on {
-		pc, file, line, ok := runtime.Caller(1)
-		if ok {
-			xfunc := runtime.FuncForPC(pc).Name()
-			fmt.Printf("Func:%s File:%s LineNo:%d, %s\n", xfunc, file, line, strings.Join(s, " "))
-		} else {
-			fmt.Printf("Func:Unk File:Unk LineNo:Unk, %s\n", strings.Join(s, " "))
-		}
+	if !stdoutOn {
+		return
 	}
+	pc, file, line, ok := runtime.Caller(1)
+	if !ok {
+		fmt.Printf("Func:Unk File:Unk LineNo:Unk, %s\n", strings.Join(s, " "))
+		return
+	}
+	xfunc := runtime.FuncForPC(pc).Name()
+	fmt.Printf("Func:%s File:%s LineNo:%d, %s\n", xfunc, file, line, strings.Join(s, " "))
 }
 
-// Printf with a true false flag.
+// Db2Printf behaves like fmt.Fprintf to standard output, but only when flag
+// is true; otherwise it does nothing.
 func Db2Printf(flag bool, format string, a ...interface{}) (n int, err error) {
 	if flag {
 		return fmt.Fprintf(os.Stdout, format, a...)
@@ -247,14 +238,12 @@ func Db2Printf(flag bool, format string, a ...interface{}) (n int, err error) {
 	return
 }
 
-// LF2 returns the line/file for the parent.
+// LF2 returns the line number and file name (as separate values, unlike LF)
+// for the caller. line is 0 and file is "Unk" if the frame cannot be
+// recovered.
 func LF2(d ...int) (line int, file string) {
-	depth := 1
-	if len(d) > 0 {
-		depth = d[0]
-	}
 	var ok bool
-	_, file, line, ok = runtime.Caller(depth)
+	_, file, line, ok = runtime.Caller(callerDepth(d))
 	if !ok {
 		line = 0
 		file = "Unk"
