@@ -16,11 +16,11 @@ package dbgo
 
 import (
 	"fmt"
-
-	"github.com/pschlump/json" // modified from "encoding/json" to handle undefined types by ignoring them.
 	"os"
 	"runtime"
 	"strings"
+
+	"github.com/pschlump/json" // modified from "encoding/json" to handle undefined types by ignoring them.
 )
 
 // callerDepth resolves the optional call-stack depth argument used by the
